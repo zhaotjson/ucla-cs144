@@ -243,4 +243,66 @@ router.get('/', async (req, res) => {
  * The route path should clearly identify both the resource and what's being changed.
  */
 
+
+
+
+router.patch('/:name/status', async (req, res) => {
+  try {
+
+    const {name} = req.params;
+    const {status} = req.body;
+
+
+    if (!Object.values(LiftStatus).includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    console.log("Attempting to fetch data from cache");
+    let cacheValue = await fetchFromCache(ObjectType.lift);
+
+
+    if (!cacheValue) {
+      console.log("Data not found in cache");
+      console.log("Fetching data from MongoDB");
+
+      const latestBatch = await getLatestBatch(BatchType.LiftBatch);
+
+      if (!latestBatch) {
+        console.log("Data not found in MongoDB");
+        return res.status(404).json({ error: "Not found" });
+      }
+
+      console.log("Writing data to cache");
+      await cacheResult(ObjectType.lift, latestBatch, 300);
+
+      cacheValue = latestBatch;
+    }
+    else {
+      console.log("Data found in cache");
+    }
+
+    const liftBatch = cacheValue;
+    const lift = liftBatch.lifts.find(l => l.name === name);
+
+    if (!lift) {
+      return res.status(404).json({ error: "Lift not found" });
+    }
+
+    lift.status = status;
+    lift.lastUpdated = new Date().toISOString();
+
+    console.log("Writing data to cache");
+    await cacheResult(ObjectType.lift, liftBatch, 300);
+
+    return res.json(lift);
+
+  } catch (error) {
+    console.error("Error in PATCH /api/lifts/:name/status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+
+
 export default router;

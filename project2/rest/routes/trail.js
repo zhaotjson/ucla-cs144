@@ -232,4 +232,64 @@ router.get('/', async (req, res) => {
  * The route path should clearly identify both the resource and what's being changed.
  */
 
+
+
+
+router.patch('/:name/status', async (req, res) => {
+  try {
+
+    const {name} = req.params;
+    const {status} = req.body;
+
+
+    if (!Object.values(TrailStatus).includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+    console.log("Attempting to fetch data from cache");
+    let cacheValue = await fetchFromCache(ObjectType.trail);
+
+
+    if (!cacheValue) {
+      console.log("Data not found in cache");
+      console.log("Fetching data from MongoDB");
+
+      const latestBatch = await getLatestBatch(BatchType.TrailBatch);
+
+      if (!latestBatch) {
+        console.log("Data not found in MongoDB");
+        return res.status(404).json({ error: "Not found" });
+      }
+
+      console.log("Writing data to cache");
+      await cacheResult(ObjectType.trail, latestBatch, 300);
+
+      cacheValue = latestBatch;
+    }
+    else {
+      console.log("Data found in cache");
+    }
+
+    const trailBatch = cacheValue;
+    const trail = trailBatch.trails.find(t => t.name === name);
+
+    if (!trail) {
+      return res.status(404).json({ error: "Trail not found" });
+    }
+
+    trail.status = status;
+    console.log("Writing data to cache");
+    await cacheResult(ObjectType.trail, trailBatch, 300);
+
+    return res.json(trail);
+
+  } catch (error) {
+    console.error("Error in PATCH /api/trails/:name/status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+
+
+
 export default router;
