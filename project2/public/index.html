@@ -403,10 +403,31 @@ const statusOptions = {
 // Web Storage API functions (Task 5)
 function saveTabSelection(tabName) {
   // TODO: Persist the tab selection and update the URL.
+
+  if (tabName !== 'lift' && tabName !== 'trail') return;
+
+  localStorage.setItem('activeTab', tabName);
+  const url = new URL(window.location);
+  url.searchParams.set('tab', tabName);
+  window.history.pushState({}, '', url);
 }
 
 function loadTabSelection() {
   // TODO: Return the active tab, considering URL, storage, and a default.
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlTab = urlParams.get('tab');
+
+  if (urlTab === 'lift' || urlTab === 'trail') {
+    return urlTab;
+  }
+
+  const storedTab = localStorage.getItem('activeTab');
+  if (storedTab === 'lift' || storedTab === 'trail') {
+    return storedTab;
+  }
+
+  return 'trail';
+
 }
 
 // Bearer-token helpers (Task 6A)
@@ -938,6 +959,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // TODO: Register a popstate listener for back/forward tab switching.
+  window.addEventListener('popstate', function () {
+    switchTab(loadTabSelection());
+  });
+
+
 
   // Initial data fetch
   fetchAndRender();
