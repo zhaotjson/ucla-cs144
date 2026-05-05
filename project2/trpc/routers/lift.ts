@@ -18,8 +18,12 @@ export const liftRouter = router({
   // Should return all lifts in the current batch, or [] if none exists.
   getLatest: publicProcedure.query(async () => {
     // Student implementation here
-    console.log("getLatest procedure not yet implemented");
-    return [];
+    const latestLiftBatch = await LiftService.getLatestLifts();
+    if (!latestLiftBatch) {
+      return [];
+    }
+
+    return latestLiftBatch;
   }),
 
   // TODO: Implement a procedure that returns a single lift by name.
@@ -28,9 +32,16 @@ export const liftRouter = router({
   getByName: publicProcedure
     .input(z.object({ name: liftNameSchema }))
     .query(async ({ input }) => {
+
       // TODO: Implement me!
-      console.log("getByName procedure not yet implemented");
-      return {};
+        const lift = await LiftService.getLiftByName(input.name);
+        if (!lift) {
+          throw new Error("Lift not found");
+        }
+        else{
+        return lift;
+        }
+
     }),
 
   // TODO: Implement a procedure that updates a lift's status in Redis.
@@ -48,7 +59,11 @@ export const liftRouter = router({
     }))
     .mutation(async ({ input }) => {
       // TODO: Implement me!
-      console.log("updateStatus procedure not yet implemented");
-      return { success: false, message: "Not implemented" };
+      const {name, status} = input;
+      const result = await LiftService.updateLiftStatus(name, status);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      return result;
     }),
 });

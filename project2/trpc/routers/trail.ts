@@ -18,8 +18,12 @@ export const trailRouter = router({
   // Should return all trails in the current batch, or [] if none exists.
   getLatest: publicProcedure.query(async () => {
     // Student implementation here
-    console.log("getLatest procedure not yet implemented");
-    return [];
+    const latestTrailBatch = await TrailService.getLatestTrails();
+    if (!latestTrailBatch) {
+      return [];
+    }
+
+    return latestTrailBatch;
   }),
 
   // TODO: Implement a procedure that returns a single trail by name.
@@ -29,8 +33,14 @@ export const trailRouter = router({
     .input(z.object({ name: trailNameSchema }))
     .query(async ({ input }) => {
       // TODO: Implement me!
-      console.log("getByName procedure not yet implemented");
-      return {};
+        const trail = await TrailService.getTrailByName(input.name);
+        if (!trail) {
+          throw new Error("Trail not found");
+        }
+        else{
+        return trail;
+        }
+
     }),
 
   // TODO: Implement a procedure that updates a trail's status in Redis.
@@ -48,7 +58,11 @@ export const trailRouter = router({
     }))
     .mutation(async ({ input }) => {
       // TODO: Implement me!
-      console.log("updateStatus procedure not yet implemented");
-      return { success: false, message: "Not implemented" };
+      const {name, status} = input;
+      const result = await TrailService.updateTrailStatus(name, status);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      return result;
     }),
 });
