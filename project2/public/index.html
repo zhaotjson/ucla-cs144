@@ -380,6 +380,7 @@ let currentPage = { trail: 0, lift: 0 };
 let isAnimating = false;
 let refreshInterval;
 
+
 // Define status options for trails and lifts
 const statusOptions = {
   trail: [
@@ -434,17 +435,89 @@ function loadTabSelection() {
 
 async function getToken() {
   // TODO: Return a valid bearer token, fetching a new one if needed.
-  return null;
+  const storedToken = localStorage.getItem('authToken');
+  const expiry = localStorage.getItem('tokenExpiry');
+  const now = Date.now();
+
+  if (storedToken && expiry && now < parseInt(expiry)) {
+    return storedToken;
+  }
+
+  const res = await fetch('/api/auth/token');
+  if (!res.ok) {
+    throw new Error('Failed to fetch token');
+  }
+
+  const data = await res.json();
+
+  const newExpiry = Date.now() + data.expiresIn * 1000;
+
+  localStorage.setItem('authToken', data.token);
+  localStorage.setItem('tokenExpiry', newExpiry.toString());
+
+  return data.token;
 }
 
 async function apiFetch(path, init = {}) {
   // TODO: Wrap fetch with auth and rate-limit handling.
-  return fetch(path, init);
+  let token = await getToken();
+
+  let res = await fetch(path, {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('tokenExpiry');
+
+    token = await getToken();
+    res = await fetch(path, {
+      ...init,
+      headers: {
+        ...(init.headers || {}),
+        Authorization: `Bearer ${token}`
+      }
+    });
+  }
+
+
+  if (res.status === 429) {
+    const data = await res.json();
+    showRateLimitBanner(data.limit, data.retryAfter);
+    throw new Error('Rate limited');
+  }
+
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status}`);
+  }
+
+  return res.json();
 }
 
 // Rate-limit banner (Task 6B)
 function showRateLimitBanner(limit, retryAfter) {
   // TODO: Show the rate-limit banner with a countdown.
+
+  const banner = document.getElementById('rateLimitBanner');
+  let seconds = parseInt(retryAfter || '5');
+
+  banner.classList.add('visible');
+
+  const interval = setInterval(() => {
+    banner.textContent = `Rate limit (${limit}/min) reached. Try again in ${seconds}s`;
+
+    if (seconds <= 0) {
+      clearInterval(interval);
+      banner.classList.remove('visible');
+    }
+
+    seconds--;
+  }, 1000);
+
 }
 
 // New functions for saving form state

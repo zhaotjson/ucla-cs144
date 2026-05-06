@@ -1,4 +1,6 @@
 import express from 'express';
+import crypto from 'crypto';
+import { redisClient } from '../utils/dbconfig.js';
 
 const router = express.Router();
 
@@ -17,8 +19,18 @@ router.post('/token', async (req, res) => {
     //    TOKEN_TTL_SECONDS. The value can be a small JSON string containing
     //    { issuedAt, ip } for diagnostic purposes.
     // 3. Respond with { token, expiresIn: TOKEN_TTL_SECONDS }.
-    console.log("POST /api/auth/token not yet implemented");
-    res.status(501).json({ error: "Not implemented" });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    const tokenData = {
+      issuedAt: new Date().toISOString(),
+      ip: req.ip,
+    };
+
+    await redisClient.set(`auth:token:${token}`, JSON.stringify (tokenData), 'EX', TOKEN_TTL_SECONDS);
+      
+    return res.json({ token, expiresIn: TOKEN_TTL_SECONDS });
+
   } catch (error) {
     console.error("Error in POST /api/auth/token:", error);
     res.status(500).json({ error: "Internal server error" });

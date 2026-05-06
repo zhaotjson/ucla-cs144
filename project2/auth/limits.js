@@ -37,8 +37,18 @@ const API_RATE_LIMIT   = parseInt(process.env.API_RATE_LIMIT_PER_MINUTE   || '5'
 // like "Rate limit (X req/min) exceeded — retry in Y seconds." A generic
 // 429 with no body is not acceptable.
 function rateLimitHandler(req, res, next, options) {
-  console.log("rate-limit handler not yet implemented");
-  res.status(501).json({ error: "Rate limit handler not implemented" });
+
+  const header = req.rateLimit ? req.rateLimit : { limit: "unknown", resetTime: new Date() };
+  const retryAfterSeconds = Math.ceil((header.resetTime.getTime() - Date.now()) / 1000);
+
+  res.set('Retry-After', retryAfterSeconds.toString());
+  return res.status(429).json({
+    error: "rate_limit_exceeded",
+    limit: header.limit,
+    retryAfter: retryAfterSeconds,
+  });
+
+
 }
 
 // Shared Redis store factory. Same Redis client as the data cache.
@@ -57,6 +67,10 @@ export const tokenIssueLimiter = rateLimit({
   // - keyGenerator: function returning the client IP (req.ip).
   // - store: makeStore()
   // - handler: rateLimitHandler
+  keyGenerator: (req) => req.ip,
+  store: makeStore(),
+  handler: rateLimitHandler
+
 });
 
 export const apiLimiter = rateLimit({
@@ -70,4 +84,8 @@ export const apiLimiter = rateLimit({
   //   not the real path.
   // - store: makeStore()
   // - handler: rateLimitHandler
+  keyGenerator: (req) => req.token || req.ip,
+  store: makeStore(),
+  handler: rateLimitHandler
+
 });
